@@ -107,6 +107,8 @@ details.tip summary{cursor:pointer;width:max-content}
 .timer{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--ink);color:var(--surface);
   padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
   display:flex;align-items:center;justify-content:center;gap:16px}
+.timer[data-mode="hold"]{background:var(--accent);color:var(--accent-ink)}
+.holdbtn{padding:7px 14px;font-size:14px}
 .timer .t{font-family:var(--mono);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
 .timer button{font:inherit;font-size:13px;border:1px solid currentColor;background:transparent;color:inherit;border-radius:6px;padding:6px 12px;cursor:pointer}
 @media (prefers-reduced-motion:no-preference){.ex,.setchip{transition:background .15s,border-color .15s}}
@@ -172,7 +174,7 @@ details.tip summary{cursor:pointer;width:max-content}
 </div>
 
 <div class="timer" id="timer" hidden>
-  <span>休憩</span><span class="t" id="timerT">0:00</span>
+  <span id="timerL">休憩</span><span class="t" id="timerT">0:00</span>
   <button type="button" id="plus">+30秒</button>
   <button type="button" id="skip">終わる</button>
 </div>
@@ -225,7 +227,7 @@ let day = nextDay();
 
 function rx(id){
   const ex = EX[id];
-  if(ex.load === 'sec'){ const m = expInfo().mid; return {sets:SETS, lo: m?30:20, hi: m?60:40, unit:'秒', rest:45}; }
+  if(ex.load === 'sec'){ const t = expInfo().mid ? 60 : 40; return {sets:SETS, lo:t, hi:t, unit:'秒', rest:45, hold:t}; }
   return {sets:SETS, lo:LO, hi:HI, unit:'回', rest: ex.big ? 120 : 90};
 }
 function lastFor(id){
@@ -259,12 +261,13 @@ function renderMenu(){
       `<button type="button" class="setchip" aria-pressed="${!!dd.sets[s]}" data-id="${id}" data-s="${s}" data-rest="${r.rest}" aria-label="${ex.n} ${s+1}セット目">${s+1}</button>`).join('');
     const goal = sg && sg.w !== ''
       ? `<span class="goal"><strong>${sg.w}kg</strong> × ${r.lo}〜${r.hi}回 <span class="rx">(${sg.msg})</span></span>`
-      : `<span class="goal"><strong>${r.lo}〜${r.hi}${r.unit}</strong>${sg ? ` <span class="rx">(${sg.msg})</span>` : ''}</span>`;
+      : `<span class="goal"><strong>${r.lo === r.hi ? r.hi : r.lo+'〜'+r.hi}${r.unit}</strong>${sg ? ` <span class="rx">(${sg.msg})</span>` : ''}</span>`;
     return `<li class="ex${done?' done':''}">
       <div class="exhead"><h3>${ex.n}</h3><span class="rx">${r.sets}セット / 休憩${r.rest}秒</span></div>
       ${goal}
       <div class="logrow">
         <div class="sets">${chips}</div>
+        ${r.hold && !done ? `<button type="button" class="btn primary holdbtn" data-id="${id}" data-hold="${r.hold}" data-rest="${r.rest}">▶ ${r.hold}秒スタート</button>` : ''}
         ${ex.load === 'kg' ? `<label class="inp"><input id="w-${day}-${id}" inputmode="decimal" data-id="${id}" data-f="w" value="${dd.w || (sg ? sg.w : '')}">kg</label>` : ''}
         <label class="inp">最後<input id="r-${day}-${id}" inputmode="numeric" data-id="${id}" data-f="r" value="${dd.r||''}">${r.unit}</label>
       </div>
@@ -287,6 +290,19 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', ()=>{
 const list = document.getElementById('exlist');
 function ensure(id){ draft[day] = draft[day] || {}; draft[day][id] = draft[day][id] || {sets:[]}; return draft[day][id]; }
 list.addEventListener('click', e=>{
+  const h = e.target.closest('.holdbtn');
+  if(h){
+    // 3秒の用意 → キープ → 終わったら次のセットに印をつけて休憩へ
+    const id = h.dataset.id, hold = +h.dataset.hold, rest = +h.dataset.rest, d0 = day;
+    startTimer(3, '用意', ()=>{ beep(0.15); startTimer(hold, 'キープ', ()=>{
+      draft[d0] = draft[d0] || {}; const dd = draft[d0][id] = draft[d0][id] || {sets:[]};
+      for(let s = 0; s < SETS; s++){ if(!dd.sets[s]){ dd.sets[s] = true; break; } }
+      dd.r = String(hold); store.set('draft', draft);
+      const y = window.scrollY; renderMenu(); window.scrollTo(0, y);
+      startTimer(rest, '休憩');
+    }); });
+    return;
+  }
   const b = e.target.closest('.setchip'); if(!b) return;
   const dd = ensure(b.dataset.id), s = +b.dataset.s;
   dd.sets[s] = !dd.sets[s];
@@ -323,18 +339,21 @@ document.getElementById('clear').addEventListener('click', ()=>{
 let left = 0, tick = null, actx = null;
 const timer = document.getElementById('timer'), tT = document.getElementById('timerT');
 function fmt(s){ return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
-function startTimer(sec){
+const tL = document.getElementById('timerL');
+function startTimer(sec, label = '休憩', onEnd){
   try{ actx = actx || new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
   left = sec; timer.hidden = false; tT.textContent = fmt(left);
+  tL.textContent = label; timer.dataset.mode = label === 'キープ' ? 'hold' : '';
   clearInterval(tick);
-  tick = setInterval(()=>{ left--; tT.textContent = fmt(Math.max(left,0)); if(left <= 0){ beep(); stopTimer(); } }, 1000);
+  tick = setInterval(()=>{ left--; tT.textContent = fmt(Math.max(left,0));
+    if(left <= 0){ clearInterval(tick); if(onEnd){ if(label !== '用意') beep(); onEnd(); } else { beep(); stopTimer(); } } }, 1000);
 }
 function stopTimer(){ clearInterval(tick); timer.hidden = true; }
-function beep(){
+function beep(len = 0.4){
   try{ navigator.vibrate && navigator.vibrate([200,100,200]); }catch(e){}
   try{ if(!actx) return; const o = actx.createOscillator(), g = actx.createGain();
     o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(actx.destination);
-    o.start(); o.stop(actx.currentTime + 0.4); }catch(e){}
+    o.start(); o.stop(actx.currentTime + len); }catch(e){}
 }
 document.getElementById('skip').addEventListener('click', stopTimer);
 document.getElementById('plus').addEventListener('click', ()=>{ left += 30; tT.textContent = fmt(left); });
