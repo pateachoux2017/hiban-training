@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="筋トレ帳">
 <meta name="robots" content="noindex">
@@ -27,6 +27,10 @@
   --chip:#242A31; --accent:#E2533E; --accent-ink:#FFFFFF; --ok:#62BD86; --ok-soft:#1E3328; color-scheme:dark }
 
 *{box-sizing:border-box}
+/* iPhoneでの拡大・横ゆれ防止:ダブルタップ拡大を止め、横はみ出しを切る */
+html{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:100%}
+body{overflow-x:hidden}
+input,textarea{font-size:16px!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.65;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 96px}
 .wrap{max-width:680px;margin:0 auto;display:grid;gap:16px}
@@ -63,7 +67,7 @@ h3{margin:0;font-size:16px}
 .setchip{font:inherit;font-family:var(--mono);font-size:13px;min-width:44px;height:38px;border-radius:8px;border:1px dashed var(--muted);background:transparent;color:var(--ink);cursor:pointer}
 .setchip[aria-pressed="true"]{background:var(--ok);border:1px solid var(--ok);color:var(--surface)}
 .inp{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
-.inp input{width:64px;font:inherit;font-family:var(--mono);font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-variant-numeric:tabular-nums}
+.inp input{width:68px;font:inherit;font-family:var(--mono);font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-variant-numeric:tabular-nums}
 details.tip{font-size:13px;color:var(--muted)}
 details.tip summary{cursor:pointer;width:max-content}
 .howto{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:flex-start;justify-content:space-between}
