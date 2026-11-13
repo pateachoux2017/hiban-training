@@ -45,7 +45,7 @@ h3{margin:0;font-size:16px}
 .menuhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
 .tabs{display:flex;gap:6px}
 .tab{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:4px 14px;cursor:pointer;display:flex;align-items:baseline;gap:6px;font-size:13px}
-.tab b{font-family:var(--display);font-weight:400;font-size:20px}
+.tab b{font-family:var(--display);font-weight:400;font-size:17px}
 .tab[aria-selected="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .tab .badge{font-size:11px;color:var(--accent);font-weight:700}
 .tab[aria-selected="true"] .badge{color:inherit}
@@ -99,7 +99,7 @@ details.tip summary{cursor:pointer;width:max-content}
 .hist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .hist li{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;border-bottom:1px solid var(--line);padding-bottom:8px}
 .hist .date{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
-.hist .tag{font-family:var(--display);color:var(--accent)}
+.hist .tag{color:var(--accent);font-family:var(--body);font-weight:700;font-size:12px}
 .disclaimer{font-size:12px;color:var(--muted);margin:0}
 #bkText{width:100%;margin-top:12px;font-family:var(--mono);font-size:12px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);resize:vertical}
 
@@ -128,8 +128,8 @@ details.tip summary{cursor:pointer;width:max-content}
     <div class="menuhead">
       <h2 id="h-menu" style="margin:0">今日のメニュー</h2>
       <div class="tabs" role="tablist" aria-label="メニューの切り替え">
-        <button class="tab" role="tab" id="tab-A" data-day="A"><b>A</b><span class="badge" id="badge-A"></span></button>
-        <button class="tab" role="tab" id="tab-B" data-day="B"><b>B</b><span class="badge" id="badge-B"></span></button>
+        <button class="tab" role="tab" id="tab-A" data-day="A"><b>上半身</b><span class="badge" id="badge-A"></span></button>
+        <button class="tab" role="tab" id="tab-B" data-day="B"><b>下半身</b><span class="badge" id="badge-B"></span></button>
       </div>
     </div>
     <p class="warm">準備:バーだけで10回 → 今日の重さの半分で5回 → 8割で3回。それから本番。</p>
@@ -195,7 +195,9 @@ const EX = {
   db_shoulder:{n:'ダンベル・ショルダープレス',load:'kg',v:'https://www.youtube.com/shorts/IH24_ohO4Jc',tip:'座ってダンベルを頭上へ。腰を反らせない。'},
   db_row:{n:'ワンハンドロウ',load:'kg',v:'https://www.youtube.com/shorts/0LY1bGPPsRk',tip:'片手をベンチにつき、ダンベルを腰の方へ引く。左右それぞれ。'}
 };
-const PLAN = {A:['squat_bar','bench','bb_row','plank'], B:['deadlift','split_squat_db','db_shoulder','db_row']};
+// A=上半身 / B=下半身 を交互に。筋肉痛の日はタブで反対側を選べばよい
+const PLAN = {A:['bench','bb_row','db_shoulder','db_row'], B:['squat_bar','deadlift','split_squat_db','plank']};
+const NAME = {A:'上半身', B:'下半身'};
 const SETS = 3, LO = 8, HI = 10;
 // 今の実力(10回×3セットができる重さ。2026-11-13 時点)
 const BASE = {squat_bar:45, split_squat_db:25, bench:25, deadlift:55};
@@ -276,7 +278,7 @@ function renderHistory(){
   if(!history.length){ el.innerHTML = '<p class="empty">セット番号をタップして「記録を保存」を押すと、ここに残ります。</p>'; return; }
   el.innerHTML = '<ul class="hist">' + history.slice(0, 12).map(h=>{
     const body = h.items.map(it=>`${EX[it.id] ? EX[it.id].n : it.id}${it.w ? ' '+it.w+'kg' : ''}${it.r ? '×'+it.r : ''}`).join('、');
-    return `<li><span class="date">${h.date} <span class="tag">${h.day}</span></span><span>${body}</span></li>`;
+    return `<li><span class="date">${h.date} <span class="tag">${NAME[h.day]}</span></span><span>${body}</span></li>`;
   }).join('') + '</ul>';
 }
 function renderAll(){ renderExp(); renderMenu(); renderHistory(); }
@@ -310,7 +312,7 @@ document.getElementById('save').addEventListener('click', ()=>{
   history.unshift({date: `${now.getMonth()+1}/${now.getDate()}`, iso: iso(now), day, items});
   store.set('history', history);
   delete draft[day]; store.set('draft', draft);
-  toast.style.color = ''; toast.textContent = `${day}を保存しました`;
+  toast.style.color = ''; toast.textContent = `${NAME[day]}を保存しました`;
   day = nextDay(); renderAll(); stopTimer();
 });
 document.getElementById('clear').addEventListener('click', ()=>{
