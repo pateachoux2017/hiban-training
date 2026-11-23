@@ -125,7 +125,7 @@ details.tip summary{cursor:pointer;width:max-content}
     <h1>非番トレーニング帳</h1>
     <div class="meta">
       <span class="pill">脂肪を落として筋肉をつける</span>
-      <span class="pill">ジム 40分</span>
+      <span class="pill">家 40分(ダンベル)</span>
       <span class="pill" id="expPill"></span>
     </div>
   </header>
@@ -138,7 +138,7 @@ details.tip summary{cursor:pointer;width:max-content}
         <button class="tab" role="tab" id="tab-B" data-day="B"><b>下半身</b><span class="badge" id="badge-B"></span></button>
       </div>
     </div>
-    <p class="warm">準備:バーだけで10回 → 今日の重さの半分で5回 → 8割で3回。それから本番。</p>
+    <p class="warm">準備:1種目目を、今日の重さの半分で10回 → 8割で3回。それから本番。重さを変えたら、軽く振ってロックを確かめる。</p>
     <ul class="exlist" id="exlist"></ul>
     <div class="finisher">時間が残ったら:早歩きかバイクを5〜10分(少し息が上がる強さ)。</div>
     <div class="actions">
@@ -198,15 +198,23 @@ const EX = {
   plank:{n:'プランク',load:'sec',v:'https://www.youtube.com/shorts/3G6k0ee7_VE',tip:'肘とつま先で支え、お尻が上がりも下がりもしない姿勢で止める。'},
   deadlift:{n:'デッドリフト',load:'kg',bar:true,big:true,v:'https://www.youtube.com/shorts/Pqf7fS5OFww',tip:'バーをすねに近づけたまま、床を押すように立つ。背中を丸めない。'},
   split_squat_db:{n:'スプリットスクワット',load:'kg',bar:true,tip:'バーを担ぎ、足を前後に開いて真下に沈む。ラックの近くで。左右それぞれの回数。'},
-  db_shoulder:{n:'ダンベル・ショルダープレス',load:'kg',v:'https://www.youtube.com/shorts/IH24_ohO4Jc',tip:'座ってダンベルを頭上へ。腰を反らせない。'},
-  db_row:{n:'ワンハンドロウ',load:'kg',v:'https://www.youtube.com/shorts/0LY1bGPPsRk',tip:'片手をベンチにつき、ダンベルを腰の方へ引く。左右それぞれ。'}
+  db_shoulder:{n:'ダンベル・ショルダープレス',load:'kg',v:'https://www.youtube.com/shorts/IH24_ohO4Jc',tip:'椅子に座って背すじを伸ばし、耳の横から頭上へ押し上げる。腰を反らせない。'},
+  db_row:{n:'ワンハンドロウ',load:'kg',v:'https://www.youtube.com/shorts/0LY1bGPPsRk',tip:'椅子やソファに片手と片膝をつき、ダンベルを腰の方へ引く。背中は床と平行に。左右それぞれの回数。'},
+  // 家(可変式ダンベル 片手2.5〜24kg・ベンチなし)用
+  floor_press:{n:'ダンベル・フロアプレス',load:'kg',big:true,tip:'床に仰向けで膝を立て、両手のダンベルを胸の横から押し上げる。肘が床に軽く触れたら止めて押す(床に打ちつけない)。'},
+  db_bent_row:{n:'ダンベル・ベントオーバーロウ',load:'kg',tip:'両手にダンベル。お尻を引いて上体を45度くらいに倒し、肘を後ろへ引く。背中を丸めない。'},
+  goblet:{n:'ゴブレットスクワット',load:'kg',big:true,tip:'ダンベル1つを縦にして胸の前で抱え、太ももが床と平行になるまでしゃがむ。かかとに体重。'},
+  db_rdl:{n:'ダンベル・ルーマニアンデッドリフト',load:'kg',big:true,tip:'両手にダンベル。膝を軽く曲げたまま、お尻を後ろに引いて前に倒れる。もも裏が伸びたら戻る。背中を丸めない。'},
+  db_split:{n:'ダンベル・スプリットスクワット',load:'kg',tip:'両手にダンベルを下げ、足を前後に開いて真下に沈む。前足のかかとで押し上げる。左右それぞれの回数。'}
 };
 // A=上半身 / B=下半身 を交互に。筋肉痛の日はタブで反対側を選べばよい
-const PLAN = {A:['bench','bb_row','db_shoulder','db_row'], B:['squat_bar','deadlift','split_squat_db','plank']};
+// 2026-11-23〜 家トレ(可変式ダンベル2個・ベンチなし)に切り替え
+const PLAN = {A:['floor_press','db_row','db_shoulder','db_bent_row'], B:['goblet','db_rdl','db_split','plank']};
+const DB_MAX = 24; // ダンベル片手の最大重量
 const NAME = {A:'上半身', B:'下半身'};
 const SETS = 3, LO = 8, HI = 10;
-// 今の実力(10回×3セットができる重さ。2026-11-13 時点)
-const BASE = {squat_bar:45, split_squat_db:25, bench:25, deadlift:55};
+// 家トレの最初の目安(片手の重さ。ジムの記録から換算した仮の数字。初回に10回ギリギリの重さへ調整する)
+const BASE = {floor_press:10, db_row:10, db_shoulder:7.5, db_bent_row:10, goblet:16, db_rdl:20, db_split:12.5};
 
 let history = store.get('history', []);
 let draft = store.get('draft', {});
@@ -246,9 +254,10 @@ function suggest(id, r){
     const w = +last.w, up = last.s >= r.sets && +last.r >= r.hi;
     if(!up) return {w, msg:`前回 ${w}kg × ${last.r||'-'}回`};
     if(ex.bar) return {w: w + 2.5, msg:`前回クリア → +2.5kg`};
-    return {w, msg:'前回クリア → 1段階重く'};
+    if(w >= DB_MAX) return {w, msg:'上限24kgでクリア → 下ろす動作を3秒かけてゆっくりに'};
+    return {w, msg:'前回クリア → ダイヤルを1段階重く'};
   }
-  if(BASE[id]) return {w: BASE[id], msg:'今の実力から'};
+  if(BASE[id]) return {w: BASE[id], msg:'片手の目安。初回は10回ギリギリに調整'};
   return {w:'', msg:'10回ギリギリの重さを探す'};
 }
 
