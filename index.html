@@ -61,6 +61,13 @@ h3{margin:0;font-size:16px}
 .exhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;align-items:baseline}
 .rx{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
 .goal{font-size:13px}
+.flow{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+.flow li{background:var(--chip);border-radius:6px;padding:4px 10px;font-variant-numeric:tabular-nums}
+.flow li span{font-size:11px;color:var(--muted);font-weight:700;margin-right:6px}
+.flow li b{font-family:var(--mono)}
+.flow li.main{background:transparent;border:1px solid var(--accent)}
+.flow li.main span{color:var(--accent)}
+.no{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--surface);font-family:var(--mono);font-size:12px;margin-right:8px;vertical-align:2px}
 .goal strong{font-family:var(--mono);font-size:15px;color:var(--accent)}
 .logrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .sets{display:flex;gap:6px}
@@ -138,7 +145,7 @@ details.tip summary{cursor:pointer;width:max-content}
         <button class="tab" role="tab" id="tab-B" data-day="B"><b>下半身</b><span class="badge" id="badge-B"></span></button>
       </div>
     </div>
-    <p class="warm">準備:1種目目を、今日の重さの半分で10回 → 8割で3回。それから本番。重さを変えたら、軽く振ってロックを確かめる。</p>
+    <p class="warm">1番から順に、各種目「準備2セット → 本番3セット」。準備の重さはダイヤルの近い数字でOK。重さを変えたら、軽く振ってロックを確かめる。</p>
     <ul class="exlist" id="exlist"></ul>
     <div class="finisher">時間が残ったら:早歩きかバイクを5〜10分(少し息が上がる強さ)。</div>
     <div class="actions">
@@ -267,17 +274,25 @@ function renderMenu(){
   document.getElementById('badge-A').textContent = nd === 'A' ? '次はこれ' : '';
   document.getElementById('badge-B').textContent = nd === 'B' ? '次はこれ' : '';
   const d = draft[day] || {};
-  document.getElementById('exlist').innerHTML = PLAN[day].map(id=>{
+  document.getElementById('exlist').innerHTML = PLAN[day].map((id, idx)=>{
     const ex = EX[id], r = rx(id), dd = d[id] || {sets:[]}, sg = suggest(id, r);
     const done = dd.sets.filter(Boolean).length >= r.sets;
+    // 準備セット:今日の重さの半分×10回 → 8割×3回(0.5kg単位、最低2.5kg)
+    const wNow = parseFloat(dd.w || (sg ? sg.w : ''));
+    const r05 = x => Math.max(2.5, Math.round(x * 2) / 2);
+    const warm = ex.load !== 'kg' ? ''
+      : wNow > 0
+        ? `<ol class="flow"><li><span>準備</span><b>${r05(wNow*0.5)}kg</b> × 10回</li><li><span>準備</span><b>${r05(wNow*0.8)}kg</b> × 3回</li><li class="main"><span>本番</span><b>${wNow}kg</b> × ${r.lo}〜${r.hi}回 × ${r.sets}セット</li></ol>`
+        : `<ol class="flow"><li><span>準備</span>軽い重さ × 10回</li><li class="main"><span>本番</span>10回ギリギリの重さ × ${r.sets}セット</li></ol>`;
     const chips = Array.from({length:r.sets}, (_, s)=>
       `<button type="button" class="setchip" aria-pressed="${!!dd.sets[s]}" data-id="${id}" data-s="${s}" data-rest="${r.rest}" aria-label="${ex.n} ${s+1}セット目">${s+1}</button>`).join('');
-    const goal = sg && sg.w !== ''
-      ? `<span class="goal"><strong>${sg.w}kg</strong> × ${r.lo}〜${r.hi}回 <span class="rx">(${sg.msg})</span></span>`
+    const goal = ex.load === 'kg'
+      ? (sg ? `<span class="rx">${sg.msg}</span>` : '')
       : `<span class="goal"><strong>${r.lo === r.hi ? r.hi : r.lo+'〜'+r.hi}${r.unit}</strong>${sg ? ` <span class="rx">(${sg.msg})</span>` : ''}</span>`;
     return `<li class="ex${done?' done':''}">
-      <div class="exhead"><h3>${ex.n}</h3><span class="rx">${r.sets}セット / 休憩${r.rest}秒</span></div>
+      <div class="exhead"><h3><span class="no">${idx+1}</span>${ex.n}</h3><span class="rx">${r.sets}セット / 休憩${r.rest}秒</span></div>
       ${goal}
+      ${warm}
       <div class="logrow">
         <div class="sets">${chips}</div>
         ${r.hold && !done ? `<button type="button" class="btn primary holdbtn" data-id="${id}" data-hold="${r.hold}" data-rest="${r.rest}">▶ ${r.hold}秒スタート</button>` : ''}
@@ -302,6 +317,11 @@ function renderAll(){ renderExp(); renderMenu(); renderHistory(); }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', ()=>{ day = t.dataset.day; renderMenu(); }));
 const list = document.getElementById('exlist');
 function ensure(id){ draft[day] = draft[day] || {}; draft[day][id] = draft[day][id] || {sets:[]}; return draft[day][id]; }
+// 重さを書き換えたら、準備セットの数字も計算し直す
+list.addEventListener('change', e=>{
+  if(e.target.dataset.f !== 'w') return;
+  const y = window.scrollY; renderMenu(); window.scrollTo(0, y);
+});
 list.addEventListener('click', e=>{
   const h = e.target.closest('.holdbtn');
   if(h){
